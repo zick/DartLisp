@@ -212,6 +212,11 @@ eval(obj, env) {
     return eval(safeCar(safeCdr(args)), env);
   } else if (op == makeSym('lambda')) {
     return makeExpr(args, env);
+  } else if (op == makeSym('defun')) {
+    var expr = makeExpr(safeCdr(args), env);
+    var sym = safeCar(args);
+    addToEnv(sym, expr, g_env);
+    return sym;
   }
   return apply(eval(op, env), evlis(args, env), env);
 }
