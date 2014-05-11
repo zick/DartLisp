@@ -66,6 +66,16 @@ nreverse(lst) {
   return ret;
 }
 
+pairlis(lst1, lst2) {
+  var ret = kNil;
+  while (lst1['tag'] == 'cons' && lst2['tag'] == 'cons') {
+    ret = makeCons(makeCons(lst1['car'], lst2['car']), ret);
+    lst1 = lst1['cdr'];
+    lst2 = lst2['cdr'];
+  }
+  return nreverse(ret);
+}
+
 isDelimiter(String c) => c == kLPar || c == kRPar || c == kQuote || new RegExp(
     r'\s+').hasMatch(c);
 
@@ -111,7 +121,7 @@ readList(String str) {
   while (true) {
     str = skipSpaces(str);
     if (str.length == 0) {
-      return makeError('unfinished parenthesis');
+      return [makeError('unfinished parenthesis'), ''];
     } else if (str[0] == kRPar) {
       break;
     }
@@ -200,6 +210,8 @@ eval(obj, env) {
       return eval(safeCar(safeCdr(safeCdr(args))), env);
     }
     return eval(safeCar(safeCdr(args)), env);
+  } else if (op == makeSym('lambda')) {
+    return makeExpr(args, env);
   }
   return apply(eval(op, env), evlis(args, env), env);
 }
@@ -217,6 +229,15 @@ evlis(lst, env) {
   return nreverse(ret);
 }
 
+progn(body, env) {
+  var ret = kNil;
+  while (body['tag'] == 'cons') {
+    ret = eval(body['car'], env);
+    body = body['cdr'];
+  }
+  return ret;
+}
+
 apply(fn, args, env) {
   if (fn['tag'] == 'error') {
     return fn;
@@ -224,6 +245,8 @@ apply(fn, args, env) {
     return args;
   } else if (fn['tag'] == 'subr') {
     return fn['data'](args);
+  } else if (fn['tag'] == 'expr') {
+    return progn(fn['body'], makeCons(pairlis(fn['args'], args), fn['env']));
   }
   return makeError('noimpl');
 }
