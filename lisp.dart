@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:convert';
 
 String kLPar = '(';
-String kRPar = '(';
+String kRPar = ')';
 String kQuote = "'";
 var kNil = {
   'tag': 'nil',
@@ -55,6 +55,17 @@ makeExpr(args, env) => {
   'env': env
 };
 
+nreverse(lst) {
+  var ret = kNil;
+  while (lst['tag'] == 'cons') {
+    var tmp = lst['cdr'];
+    lst['cdr'] = ret;
+    ret = lst;
+    lst = tmp;
+  }
+  return ret;
+}
+
 isDelimiter(String c) => c == kLPar || c == kRPar || c == kQuote || new RegExp(
     r'\s+').hasMatch(c);
 
@@ -87,11 +98,65 @@ read(String str) {
   } else if (str[0] == kRPar) {
     return [makeError('invalid syntax: ' + str), ''];
   } else if (str[0] == kLPar) {
-    return [makeError('noimpl'), ''];
+    return readList(str.substring(1));
   } else if (str[0] == kQuote) {
-    return [makeError('noimpl'), ''];
+    var tmp = read(str.substring(1));
+    return [makeCons(makeSym('quote'), makeCons(tmp[0], kNil)), tmp[1]];
   }
   return readAtom(str);
+}
+
+readList(String str) {
+  var ret = kNil;
+  while (true) {
+    str = skipSpaces(str);
+    if (str.length == 0) {
+      return makeError('unfinished parenthesis');
+    } else if (str[0] == kRPar) {
+      break;
+    }
+    var tmp = read(str);
+    var elm = tmp[0];
+    var next = tmp[1];
+    if (elm['tag'] == 'error') {
+      return [elm, ''];
+    }
+    ret = makeCons(elm, ret);
+    str = next;
+  }
+  return [nreverse(ret), str.substring(1)];
+}
+
+printObj(obj) {
+  var tag = obj['tag'];
+  if (tag == 'num' || tag == 'sym' || tag == 'nil') {
+    return obj['data'].toString();
+  } else if (tag == 'error') {
+    return '<error: ' + obj['data'] + '>';
+  } else if (tag == 'cons') {
+    return printList(obj);
+  } else if (tag == 'subr' || tag == 'expr') {
+    return tag;
+  }
+  return '<unknown>';
+}
+
+printList(obj) {
+  String ret = '';
+  bool first = true;
+  while (obj['tag'] == 'cons') {
+    if (first) {
+      first = false;
+    } else {
+      ret += ' ';
+    }
+    ret += printObj(obj['car']);
+    obj = obj['cdr'];
+  }
+  if (obj == kNil) {
+    return '(' + ret + ')';
+  }
+  return '(' + ret + ' . ' + printObj(obj) + ')';
 }
 
 Stream readLine() => stdin.transform(UTF8.decoder).transform(new LineSplitter()
@@ -100,7 +165,7 @@ Stream readLine() => stdin.transform(UTF8.decoder).transform(new LineSplitter()
 void main() {
   stdout.write('> ');
   readLine().listen((String line) {
-    print(read(line));
+    print(printObj(read(line)[0]));
     stdout.write('> ');
   });
 }
