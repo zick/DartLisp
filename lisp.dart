@@ -159,13 +159,48 @@ printList(obj) {
   return '(' + ret + ' . ' + printObj(obj) + ')';
 }
 
+findVar(sym, env) {
+  while (env['tag'] == 'cons') {
+    var alist = env['car'];
+    while (alist['tag'] == 'cons') {
+      if (alist['car']['car'] == sym) {
+        return alist['car'];
+      }
+      alist = alist['cdr'];
+    }
+    env = env['cdr'];
+  }
+  return kNil;
+}
+
+var g_env = makeCons(kNil, kNil);
+
+addToEnv(sym, val, env) {
+  env['car'] = makeCons(makeCons(sym, val), env['car']);
+}
+
+eval(obj, env) {
+  var tag = obj['tag'];
+  if (tag == 'nil' || tag == 'num' || tag == 'error') {
+    return obj;
+  } else if (tag == 'sym') {
+    var bind = findVar(obj, env);
+    if (bind == kNil) {
+      return makeError(obj['data'] + ' has no value');
+    }
+    return bind['cdr'];
+  }
+  return makeError('noimpl');
+}
+
 Stream readLine() => stdin.transform(UTF8.decoder).transform(new LineSplitter()
     );
 
 void main() {
+  addToEnv(makeSym('t'), makeSym('t'), g_env);
   stdout.write('> ');
   readLine().listen((String line) {
-    print(printObj(read(line)[0]));
+    print(printObj(eval(read(line)[0], g_env)));
     stdout.write('> ');
   });
 }
