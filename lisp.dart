@@ -190,14 +190,59 @@ eval(obj, env) {
     }
     return bind['cdr'];
   }
+
+  var op = safeCar(obj);
+  var args = safeCdr(obj);
+  if (op == makeSym('quote')) {
+    return safeCar(args);
+  } else if (op == makeSym('if')) {
+    if (eval(safeCar(args), env) == kNil) {
+      return eval(safeCar(safeCdr(safeCdr(args))), env);
+    }
+    return eval(safeCar(safeCdr(args)), env);
+  }
+  return apply(eval(op, env), evlis(args, env), env);
+}
+
+evlis(lst, env) {
+  var ret = kNil;
+  while (lst['tag'] == 'cons') {
+    var elm = eval(lst['car'], env);
+    if (elm['tag'] == 'error') {
+      return elm;
+    }
+    ret = makeCons(elm, ret);
+    lst = lst['cdr'];
+  }
+  return nreverse(ret);
+}
+
+apply(fn, args, env) {
+  if (fn['tag'] == 'error') {
+    return fn;
+  } else if (args['tag'] == 'error') {
+    return args;
+  } else if (fn['tag'] == 'subr') {
+    return fn['data'](args);
+  }
   return makeError('noimpl');
 }
+
+subrCar(args) => safeCar(safeCar(args));
+
+subrCdr(args) => safeCdr(safeCar(args));
+
+subrCons(args) => makeCons(safeCar(args), safeCar(safeCdr(args)));
 
 Stream readLine() => stdin.transform(UTF8.decoder).transform(new LineSplitter()
     );
 
 void main() {
+  addToEnv(makeSym('car'), makeSubr(subrCar), g_env);
+  addToEnv(makeSym('cdr'), makeSubr(subrCdr), g_env);
+  addToEnv(makeSym('cons'), makeSubr(subrCons), g_env);
   addToEnv(makeSym('t'), makeSym('t'), g_env);
+
   stdout.write('> ');
   readLine().listen((String line) {
     print(printObj(eval(read(line)[0], g_env)));
