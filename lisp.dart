@@ -44,6 +44,9 @@ final sym_if = makeSym('if');
 final sym_lambda = makeSym('lambda');
 final sym_defun = makeSym('defun');
 final sym_setq = makeSym('setq');
+final sym_loop = makeSym('loop');
+final sym_return = makeSym('return');
+var loop_val = kNil;
 
 class Num {
   final data;
@@ -225,7 +228,10 @@ eval(obj, env) {
   if (op == sym_quote) {
     return safeCar(args);
   } else if (op == sym_if) {
-    if (eval(safeCar(args), env) == kNil) {
+    var c = eval(safeCar(args), env);
+    if (c is Error) {
+      return c;
+    } else if (c == kNil) {
       return eval(safeCar(safeCdr(safeCdr(args))), env);
     }
     return eval(safeCar(safeCdr(args)), env);
@@ -238,6 +244,9 @@ eval(obj, env) {
     return sym;
   } else if (op == sym_setq) {
     var val = eval(safeCar(safeCdr(args)), env);
+    if (val is Error) {
+      return val;
+    }
     var sym = safeCar(args);
     var bind = findVar(sym, env);
     if (bind == kNil) {
@@ -246,6 +255,11 @@ eval(obj, env) {
       bind.cdr = val;
     }
     return val;
+  } else if (op == sym_loop) {
+    return loop(args, env);
+  } else if (op == sym_return) {
+    loop_val = eval(safeCar(args), env);
+    return makeError('');
   }
   return apply(eval(op, env), evlis(args, env), env);
 }
@@ -267,9 +281,24 @@ progn(body, env) {
   var ret = kNil;
   while (body is Cons) {
     ret = eval(body.car, env);
+    if (ret is Error) {
+      return ret;
+    }
     body = body.cdr;
   }
   return ret;
+}
+
+loop(body, env) {
+  while (true) {
+    var ret = progn(body, env);
+    if (ret is Error) {
+      if (ret.data == '') {
+        return loop_val;
+      }
+      return ret;
+    }
+  }
 }
 
 apply(fn, args, env) {
