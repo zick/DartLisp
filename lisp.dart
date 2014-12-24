@@ -168,8 +168,10 @@ printObj(obj) {
     return '<error: ${obj.data}>';
   } else if (obj is Cons) {
     return printList(obj);
-  } else if (obj is Subr || obj is Expr) {
-    return tag.runtimeType.toString();
+  } else if (obj is Subr) {
+    return '<subr>';
+  } else if (obj is Expr) {
+    return '<expr>';
   }
   return '<unknown>';
 }
